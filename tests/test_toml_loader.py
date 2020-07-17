@@ -1,9 +1,10 @@
 import pytest
 
 from dynaconf import LazySettings
+from dynaconf.loaders.toml_loader import encode_nulls
 from dynaconf.loaders.toml_loader import load
 
-settings = LazySettings(ENV_FOR_DYNACONF="PRODUCTION")
+settings = LazySettings(environments=True, ENV_FOR_DYNACONF="PRODUCTION")
 
 
 TOML = """
@@ -179,3 +180,29 @@ def test_load_dunder():
     load(settings, filename=toml, env="FOO")
     assert settings.COLORS.gray.code == "#CCCCCC"
     assert settings.COLORS.gray.name == "Gray"
+
+
+def test_encode_nulls():
+    assert encode_nulls(None) == "@none "
+    assert encode_nulls([None, None]) == ["@none ", "@none "]
+    assert encode_nulls((None, None)) == ["@none ", "@none "]
+    assert encode_nulls({"nullable": None}) == {"nullable": "@none "}
+    assert encode_nulls(1) == 1
+    assert encode_nulls(1.1) == 1.1
+    assert encode_nulls(True) is True
+    assert encode_nulls(False) is False
+    assert encode_nulls("") == ""
+    assert encode_nulls("text") == "text"
+
+
+def test_envless():
+    settings = LazySettings()
+    ini = """
+    a = "a,b"
+    colors__white__code = '#FFFFFF'
+    COLORS__white__name = 'white'
+    """
+    load(settings, filename=ini)
+    assert settings.a == "a,b"
+    assert settings.COLORS.white.code == "#FFFFFF"
+    assert settings.COLORS.white.name == "white"

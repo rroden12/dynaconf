@@ -21,3 +21,30 @@ import dynaconf  # noqa
 settings = dynaconf.DjangoDynaconf(__name__)  # noqa
 # HERE ENDS DYNACONF EXTENSION LOAD (No more code below this line)
  """
+
+INSTANCE_TEMPLATE = """
+from dynaconf import Dynaconf
+
+settings = Dynaconf(
+    envvar_prefix="DYNACONF",
+    settings_files={settings_files},
+)
+
+# `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
+# `settings_files` = Load this files in the order.
+"""
+
+EXTS = (
+    "py",
+    "toml",
+    "tml",
+    "yaml",
+    "yml",
+    "ini",
+    "conf",
+    "properties",
+    "json",
+)
+DEFAULT_SETTINGS_FILES = [f"settings.{ext}" for ext in EXTS] + [
+    f".secrets.{ext}" for ext in EXTS
+]

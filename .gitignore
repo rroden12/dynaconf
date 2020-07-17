@@ -8,6 +8,8 @@ __pycache__/
 *.sqlite3
 # C extensions
 *.so
+.mypy_cache/
+*.mypy_cache/
 
 # Distribution / packaging
 .Python
@@ -58,9 +60,13 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+site/
 
 # PyBuilder
 target/
 .idea/
 .idea
 .idea/*
+.vscode/
+
+junit/

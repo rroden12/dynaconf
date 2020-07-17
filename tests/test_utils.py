@@ -1,10 +1,13 @@
 import io
+import json
 import os
 
 import pytest
 
 from dynaconf import default_settings
+from dynaconf.loaders.json_loader import DynaconfEncoder
 from dynaconf.utils import ensure_a_list
+from dynaconf.utils import extract_json_objects
 from dynaconf.utils import Missing
 from dynaconf.utils import missing
 from dynaconf.utils import object_merge
@@ -12,7 +15,11 @@ from dynaconf.utils import trimmed_split
 from dynaconf.utils import upperfy
 from dynaconf.utils.files import find_file
 from dynaconf.utils.files import get_local_filename
+from dynaconf.utils.parse_conf import evaluate_lazy_format
+from dynaconf.utils.parse_conf import Formatters
+from dynaconf.utils.parse_conf import Lazy
 from dynaconf.utils.parse_conf import parse_conf_data
+from dynaconf.utils.parse_conf import try_to_encode
 from dynaconf.utils.parse_conf import unparse_conf_data
 
 
@@ -26,6 +33,7 @@ def test_unparse():
     assert unparse_conf_data(["a", "b"]) == '@json ["a", "b"]'
     assert unparse_conf_data({"name": "Bruno"}) == '@json {"name": "Bruno"}'
     assert unparse_conf_data(None) == "@none "
+    assert unparse_conf_data(Lazy("{foo}")) == "@format {foo}"
 
 
 def test_cast_bool(settings):
@@ -125,13 +133,14 @@ def test_missing_sentinel():
 
 def test_meta_values():
     reset = parse_conf_data("@reset [1, 2]", tomlfy=True)
+    # @reset is DEPRECATED in v3.0.0 but kept for backwards compatibility
     assert reset.value == [1, 2]
-    assert reset.dynaconf_reset is True
+    assert reset._dynaconf_reset is True
     assert "Reset([1, 2])" in repr(reset)
 
     _del = parse_conf_data("@del", tomlfy=True)
     assert _del.value == ""
-    assert _del.dynaconf_del is True
+    assert _del._dynaconf_del is True
     assert "Del()" in repr(_del)
 
 
@@ -163,6 +172,16 @@ def test_merge_existing_dict():
 
     object_merge(existing, new)
     assert new == {"host": "localhost", "port": 666, "user": "admin"}
+
+
+def test_merge_dict_with_meta_values():
+    existing = {"A": 1, "B": 2, "C": 3}
+    new = {
+        "B": parse_conf_data("@del", tomlfy=True),
+        "C": parse_conf_data("4", tomlfy=True),
+    }
+    object_merge(existing, new)
+    assert new == {"A": 1, "C": 4}
 
 
 def test_trimmed_split():
@@ -232,3 +251,87 @@ def test_upperfy():
     )
     assert upperfy("foo_bar") == "FOO_BAR"
     assert upperfy("foo_BAR") == "FOO_BAR"
+
+
+def test_lazy_format_class():
+    value = Lazy("{this[FOO]}/bar")
+    settings = {"FOO": "foo"}
+    assert value(settings) == "foo/bar"
+    assert str(value) == value.value
+    assert repr(value) == f"'@{value.formatter} {value.value}'"
+
+
+def test_evaluate_lazy_format_decorator():
+    class Settings:
+        FOO = "foo"
+
+        @evaluate_lazy_format
+        def get(self):
+            return parse_conf_data("@format {this.FOO}/bar")
+
+    settings = Settings()
+    assert settings.get() == "foo/bar"
+
+
+def test_lazy_format_on_settings(settings):
+    os.environ["ENV_THING"] = "LazyFormat"
+    settings.set("set_1", "really")
+    settings.set("lazy", "@format {env[ENV_THING]}/{this[set_1]}/{this.SET_2}")
+    settings.set("set_2", "works")
+
+    assert settings.LAZY == settings.get("lazy") == "LazyFormat/really/works"
+
+
+def test_lazy_format_class_jinja():
+    value = Lazy("{{this['FOO']}}/bar", formatter=Formatters.jinja_formatter)
+    settings = {"FOO": "foo"}
+    assert value(settings) == "foo/bar"
+
+
+def test_evaluate_lazy_format_decorator_jinja():
+    class Settings:
+        FOO = "foo"
+
+        @evaluate_lazy_format
+        def get(self):
+            return parse_conf_data("@jinja {{this.FOO}}/bar")
+
+    settings = Settings()
+    assert settings.get() == "foo/bar"
+
+
+def test_lazy_format_on_settings_jinja(settings):
+    os.environ["ENV_THING"] = "LazyFormat"
+    settings.set("set_1", "really")
+    settings.set(
+        "lazy", "@jinja {{env.ENV_THING}}/{{this['set_1']}}/{{this.SET_2}}"
+    )
+    settings.set("set_2", "works")
+
+    assert settings.LAZY == settings.get("lazy") == "LazyFormat/really/works"
+
+
+def test_lazy_format_is_json_serializable():
+    value = Lazy("{this[FOO]}/bar")
+    assert (
+        json.dumps({"val": value}, cls=DynaconfEncoder)
+        == '{"val": "@format {this[FOO]}/bar"}'
+    )
+
+
+def test_try_to_encode():
+    value = Lazy("{this[FOO]}/bar")
+    assert try_to_encode(value) == "@format {this[FOO]}/bar"
+
+
+def test_del_raises_on_unwrap():
+    value = parse_conf_data("@del ")
+    with pytest.raises(ValueError):
+        value.unwrap()
+
+
+def test_extract_json():
+    assert list(extract_json_objects("foo bar")) == []
+    assert list(extract_json_objects('foo bar {"a": 1}')) == [{"a": 1}]
+    assert list(extract_json_objects("foo bar {'a': 2{")) == []
+    assert list(extract_json_objects('{{{"x": {}}}}')) == [{"x": {}}]

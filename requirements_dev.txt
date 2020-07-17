@@ -2,11 +2,7 @@
 redis
 wheel
 twine
-PyYAML
-toml
 flask>=1.0
-python-box
-python-dotenv
 setuptools>=38.6.0
 configobj
 hvac
@@ -19,6 +15,9 @@ pytest
 pytest-cov
 pytest-mock
 commentjson
+docker-compose
+lovely-pytest-docker
+tox
 
 # style check
 flake8
@@ -38,6 +37,17 @@ sphinx
 recommonmark
 docutils>=0.14
 aafigure>=0.6
+
+# MKDOCS
+mkdocs>=1.1.2
+mkdocs-git-revision-date-localized-plugin>=0.5.2
+mkdocs-material>=5.3.2
+mkdocs-material-extensions>=1.0
+mkdocs-multilang>=0.1.3
+mkdocs-nav-enhancements>=0.9.1
+mkdocs-new-features-notifier>=0.1.6
+mkdocs-versioning>=0.2.1
+pymdown-extensions
 
 # editable dynaconf
 --editable .

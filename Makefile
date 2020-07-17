@@ -14,9 +14,13 @@ test_examples:
 	cd example/;pwd;python compat.py
 	cd example/app;pwd;python app.py
 	cd example/dunder;pwd;python app.py
+	cd example/format;pwd;python app.py
 	cd example/app_with_dotenv;pwd;python app.py
+	cd example/dotenv_not_loaded_by_default;pwd;python app.py
+	cd example/dotenv_loaded_if_enabled;pwd;python app.py
 	cd example/merge_enabled;pwd;python app.py
 	cd example/new_merge;pwd;python app.py
+	cd example/overriding;pwd;python app.py
 	cd example/dynaconf_merge;pwd;python app.py
 	cd example/multiple_sources;pwd;python app.py
 	cd example/multiple_folders;pwd;python app.py
@@ -29,10 +33,15 @@ test_examples:
 	cd example/flask_with_json;pwd;flask routes | grep -c flask_with_json || exit 1
 	cd example/flask_with_commentjson;pwd;flask routes | grep -c flask_with_commentjson || exit 1
 	cd example/flask_with_ini;pwd;flask routes | grep -c flask_with_ini || exit 1
+	cd example/pytest_example/app;pwd;python app.py
+	cd example/pytest_example/app;pwd;pytest tests/
+	cd example/pytest_example/flask;pwd;pytest tests
 	cd example/validators/with_python/;pwd;python app.py
-	cd example/validators/with_toml/;pwd;dynaconf validate
+	cd example/validators/with_toml/;pwd;PYTHONPATH=. dynaconf -i config.settings validate
 	cd example/toml_with_secrets/;pwd;python program.py
 	cd example/envs;pwd;python app.py
+	cd example/envless_mode;pwd;python app.py
+	cd example/lower_read;pwd;python app.py
 	cd example/custom_loader;pwd;python app.py
 	cd example/get_fresh;pwd;python app.py
 	cd example/includes;pwd;python app.py
@@ -85,28 +94,42 @@ test_examples:
 	cd example/issues/194_flask_config;pwd;python app.py
 	cd example/issues/228_nested_toml_bool/python_app;pwd;python app.py
 	cd example/issues/228_nested_toml_bool/django_app;pwd;python manage.py test
-
+	cd example/issues/251_dotted_unexistent;pwd;python app.py
+	cd example/issues/266_envvar_from_env_override;pwd;python app.py
+	cd example/issues/288_null_values;pwd;python app.py
+	cd example/issues/306_merge_replace;pwd;python app.py
 test_vault:
 	# @cd example/vault;pwd;python write.py
-	# docker run -d -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -p 8200:8200 vault
-	@cd example/vault;pwd;dynaconf write vault -s SECRET=vault_works_in_default -s FOO=foo_is_default
-	@cd example/vault;pwd;dynaconf write vault -e dev -s SECRET=vault_works_in_dev
-	@cd example/vault;pwd;dynaconf write vault -e prod -s SECRET=vault_works_in_prod
+	docker run --rm --name dynaconf_with_vault -d -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -p 8200:8200 vault
 	@sleep 5
+	@cd example/vault;pwd;dynaconf -i dynaconf.settings write vault -s SECRET=vault_works_in_default -s FOO=foo_is_default
+	@cd example/vault;pwd;dynaconf -i dynaconf.settings write vault -e dev -s SECRET=vault_works_in_dev
+	@cd example/vault;pwd;dynaconf -i dynaconf.settings write vault -e prod -s SECRET=vault_works_in_prod
+	@sleep 2
 	@cd example/vault;pwd;python vault_example.py
+	docker stop dynaconf_with_vault
 
 test_redis:
 	# @cd example/redis_example;pwd;python write.py
-	# docker run -d -p 6379:6379 redis
-	@cd example/redis_example;pwd;dynaconf write redis -s FOO=foo_is_default
-	@cd example/redis_example;pwd;dynaconf write redis -s SECRET=redis_works_in_default
-	@cd example/redis_example;pwd;dynaconf write redis -e development -s SECRET=redis_works_in_development
-	@cd example/redis_example;pwd;dynaconf write redis -e production -s SECRET=redis_works_in_production
-	@sleep 5
+	docker run --rm --name dynaconf_with_redis -d -p 6379:6379 redis:alpine
+	@sleep 2
+	@cd example/redis_example;pwd;dynaconf -i dynaconf.settings write redis -s FOO=foo_is_default
+	@cd example/redis_example;pwd;dynaconf -i dynaconf.settings write redis -s SECRET=redis_works_in_default
+	@cd example/redis_example;pwd;dynaconf -i dynaconf.settings write redis -e development -s SECRET=redis_works_in_development
+	@cd example/redis_example;pwd;dynaconf -i dynaconf.settings write redis -e production -s SECRET=redis_works_in_production
+	@sleep 2
 	@cd example/redis_example;pwd;python redis_example.py
+	docker stop dynaconf_with_redis
+
+watch:
+	ls **/**.py | entr py.test -m "not integration" -s -vvv -l --tb=long --maxfail=1 tests/
 
 test_only:
-	py.test -v --cov-config .coveragerc --cov=dynaconf -l --tb=short --maxfail=1 tests/
+	py.test -m "not integration" -v --cov-config .coveragerc --cov=dynaconf -l --tb=short --maxfail=1 tests/
+	coverage xml
+
+test_integration:
+	py.test -m integration -v --cov-config .coveragerc --cov=dynaconf --cov-append -l --tb=short --maxfail=1 tests/
 	coverage xml
 
 coverage-report:
@@ -116,7 +139,6 @@ test: pep8 test_only
 
 install:
 	pip install --upgrade pip
-	python setup.py develop
 	pip install -r requirements_dev.txt
 	make setup-pre-commit
 
@@ -133,7 +155,7 @@ pep8:
 	#   F841 (local variable assigned but never used, useful for debugging on exception)
 	#   W504 (line break after binary operator, I prefer to put `and|or` at the end)
 	#   F403 (star import `from foo import *` often used in __init__ files)
-	flake8 dynaconf --ignore=F403,W504,W503,F841,E401,F401,E402
+	flake8 dynaconf --ignore=F403,W504,W503,F841,E401,F401,E402 --exclude=dynaconf/vendor
 
 dist: clean
 	@python setup.py sdist bdist_wheel
@@ -144,6 +166,7 @@ publish:
 
 clean:
 	@find ./ -name '*.pyc' -exec rm -f {} \;
+	@find ./ -name '__pycache__' -exec rm -rf {} \;
 	@find ./ -name 'Thumbs.db' -exec rm -f {} \;
 	@find ./ -name '*~' -exec rm -f {} \;
 	rm -rf .cache
@@ -155,9 +178,9 @@ clean:
 	rm -rf docs/_build
 
 docs:
-	rm -rf docs/_build
-	@cd docs;make html
+	rm -rf legacy_docs/_build
+	@cd legacy_docs;make html
 
 run-tox:
-	tox -r
+	tox --recreate
 	rm -rf .tox

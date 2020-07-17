@@ -1,7 +1,13 @@
 import copy
 import operator
 
-empty = object()
+
+class Empty:
+    def __str__(self):
+        return "EMPTY"
+
+
+empty = Empty()
 
 
 def new_method_proxy(func):
@@ -34,7 +40,7 @@ class LazyObject:
     __getattr__ = new_method_proxy(getattr)
 
     def __setattr__(self, name, value):
-        if name in ["_wrapped", "_kwargs"]:
+        if name in ["_wrapped", "_kwargs", "_warn_dynaconf_global_settings"]:
             # Assign to __dict__ to avoid infinite __setattr__ loops.
             self.__dict__[name] = value
         else:
@@ -44,7 +50,7 @@ class LazyObject:
 
     def __delattr__(self, name):
         if name in ["_wrapped", "_kwargs"]:
-            raise TypeError("can't delete %s." % name)
+            raise TypeError(f"can't delete {name}.")
         if self._wrapped is empty:
             self._setup()
         delattr(self._wrapped, name)

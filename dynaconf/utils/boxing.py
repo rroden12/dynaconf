@@ -1,3 +1,5 @@
+import inspect
+
 from box import Box
 
 from dynaconf.utils import upperfy
@@ -28,8 +30,20 @@ class DynaBox(Box):
         return self.__class__(super(Box, self).copy())
 
     def get(self, item, default=None, *args, **kwargs):
-        value = super(DynaBox, self).get(item, default, *args, **kwargs)
-        if value is None or value == default:
-            n_item = item.lower() if item.isupper() else upperfy(item)
-            value = super(DynaBox, self).get(n_item, default, *args, **kwargs)
-        return value
+        if item not in self:  # toggle case
+            item = item.lower() if item.isupper() else upperfy(item)
+        return super(DynaBox, self).get(item, default, *args, **kwargs)
+
+    def __dir__(self):
+        keys = list(self.keys())
+        reserved = [
+            item[0]
+            for item in inspect.getmembers(DynaBox)
+            if not item[0].startswith("__")
+        ]
+        return (
+            keys
+            + [k.lower() for k in keys]
+            + [k.upper() for k in keys]
+            + reserved
+        )

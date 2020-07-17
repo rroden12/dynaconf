@@ -63,7 +63,14 @@ def load(django_settings_module_name=None, **kwargs):  # pragma: no cover
     options.setdefault("ROOT_PATH_FOR_DYNACONF", _root_path)
     options.setdefault("ENVVAR_PREFIX_FOR_DYNACONF", "DJANGO")
     options.setdefault("ENV_SWITCHER_FOR_DYNACONF", "DJANGO_ENV")
+    options.setdefault("ENVIRONMENTS_FOR_DYNACONF", True)
+    options.setdefault("load_dotenv", True)
+    options.setdefault(
+        "default_settings_paths", dynaconf.DEFAULT_SETTINGS_FILES
+    )
+
     lazy_settings = dynaconf.LazySettings(**options)
+    dynaconf.settings = lazy_settings  # rebind the settings
 
     # 2) Set all settings back to django_settings_module for 'django check'
     lazy_settings.populate_obj(django_settings_module)
@@ -80,7 +87,6 @@ def load(django_settings_module_name=None, **kwargs):  # pragma: no cover
             and (key != "SETTINGS_MODULE")
             and key not in lazy_settings.store
         ):
-            lazy_settings.logger.debug("Django default setting: %s", key)
             dj[key] = getattr(django_settings, key, None)
         dj["ORIGINAL_SETTINGS_MODULE"] = django_settings.SETTINGS_MODULE
 
@@ -110,7 +116,6 @@ def load(django_settings_module_name=None, **kwargs):  # pragma: no cover
         ):
             stack_item.frame.f_globals["settings"] = lazy_settings
 
-    lazy_settings.logger.debug("Django Dynaconf: Finished loading")
     return lazy_settings
 
 

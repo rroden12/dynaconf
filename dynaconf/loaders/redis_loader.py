@@ -29,18 +29,10 @@ def load(obj, env=None, silent=True, key=None):
     # prefix is added to env_list to keep backwards compatibility
     env_list = [prefix] + build_env_list(obj, env or obj.current_env)
     for env_name in env_list:
-        holder = "{0}_{1}".format(prefix.upper(), env_name.upper())
+        holder = f"{prefix.upper()}_{env_name.upper()}"
         try:
             if key:
                 value = redis.hget(holder.upper(), key)
-                if value:
-                    obj.logger.debug(
-                        "redis_loader: loading by key: %s:%s (%s:%s)",
-                        key,
-                        value,
-                        IDENTIFIER,
-                        holder,
-                    )
                 if value:
                     parsed_value = parse_conf_data(value, tomlfy=True)
                     if parsed_value:
@@ -51,17 +43,9 @@ def load(obj, env=None, silent=True, key=None):
                     for key, value in redis.hgetall(holder.upper()).items()
                 }
                 if data:
-                    obj.logger.debug(
-                        "redis_loader: loading: %s (%s:%s)",
-                        data,
-                        IDENTIFIER,
-                        holder,
-                    )
                     obj.update(data, loader_identifier=IDENTIFIER)
         except Exception as e:
             if silent:
-                if hasattr(obj, "logger"):
-                    obj.logger.error(str(e))
                 return False
             raise
 
@@ -83,7 +67,7 @@ def write(obj, data=None, **kwargs):
     client = StrictRedis(**obj.REDIS_FOR_DYNACONF)
     holder = obj.get("ENVVAR_PREFIX_FOR_DYNACONF").upper()
     # add env to holder
-    holder = "{0}_{1}".format(holder, obj.current_env.upper())
+    holder = f"{holder}_{obj.current_env.upper()}"
 
     data = data or {}
     data.update(kwargs)
@@ -106,7 +90,7 @@ def delete(obj, key=None):
     client = StrictRedis(**obj.REDIS_FOR_DYNACONF)
     holder = obj.get("ENVVAR_PREFIX_FOR_DYNACONF").upper()
     # add env to holder
-    holder = "{0}_{1}".format(holder, obj.current_env.upper())
+    holder = f"{holder}_{obj.current_env.upper()}"
 
     if key:
         client.hdel(holder.upper(), upperfy(key))

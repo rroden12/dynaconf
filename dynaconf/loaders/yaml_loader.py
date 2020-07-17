@@ -6,11 +6,25 @@ from dynaconf import default_settings
 from dynaconf.constants import YAML_EXTENSIONS
 from dynaconf.loaders.base import BaseLoader
 from dynaconf.utils import object_merge
+from dynaconf.utils.parse_conf import try_to_encode
+
 
 try:
-    import yaml
+    import ruamel.yaml as yaml
 except ImportError:  # pragma: no cover
-    yaml = None
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover
+        yaml = None
+
+
+if yaml is not None:
+    # Add support for Dynaconf Lazy values to YAML dumper
+    yaml.SafeDumper.yaml_representers[
+        None
+    ] = lambda self, data: yaml.representer.SafeRepresenter.represent_str(
+        self, try_to_encode(data)
+    )
 
 
 def load(obj, env=None, silent=True, key=None, filename=None):
@@ -31,7 +45,9 @@ def load(obj, env=None, silent=True, key=None, filename=None):
     # Resolve the loaders
     # https://github.com/yaml/pyyaml/wiki/PyYAML-yaml.load(input)-Deprecation
     # Possible values are `safe_load, full_load, unsafe_load, load`
-    yaml_reader = getattr(yaml, obj.get("YAML_LOADER_FOR_DYNACONF"), yaml.load)
+    yaml_reader = getattr(
+        yaml, obj.get("YAML_LOADER_FOR_DYNACONF"), yaml.safe_load
+    )
     if yaml_reader.__name__ == "unsafe_load":  # pragma: no cover
         warn(
             "yaml.unsafe_load is deprecated."
@@ -62,11 +78,18 @@ def write(settings_path, settings_data, merge=True):
         with io.open(
             str(settings_path), encoding=default_settings.ENCODING_FOR_DYNACONF
         ) as open_file:
-            object_merge(yaml.full_load(open_file), settings_data)
+            object_merge(yaml.safe_load(open_file), settings_data)
 
     with io.open(
         str(settings_path),
         "w",
         encoding=default_settings.ENCODING_FOR_DYNACONF,
     ) as open_file:
-        yaml.dump(settings_data, open_file)
+        yaml.dump(
+            settings_data,
+            open_file,
+            Dumper=yaml.dumper.SafeDumper,
+            explicit_start=True,
+            indent=2,
+            default_flow_style=False,
+        )

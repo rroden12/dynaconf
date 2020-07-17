@@ -7,7 +7,8 @@ except ImportError:  # pragma: no cover
     Config = object
 
 
-from dynaconf import LazySettings
+import dynaconf
+from importlib import import_module
 
 
 class FlaskDynaconf(object):
@@ -62,8 +63,8 @@ class FlaskDynaconf(object):
         app = Flask(__name__)
         FlaskDynaconf(
             app,
-            ENV_FOR_DYNACONF='MYSITE',
-            SETTINGS_FILE_FOR_DYNACONF='settings.yml',
+            ENV='MYSITE',
+            SETTINGS_FILE='settings.yml',
             EXTRA_VALUE='You can add aditional config vars here'
         )
 
@@ -76,7 +77,7 @@ class FlaskDynaconf(object):
         app=None,
         instance_relative_config=False,
         dynaconf_instance=None,
-        **kwargs
+        **kwargs,
     ):
         """kwargs holds initial dynaconf configuration"""
         if not flask_installed:  # pragma: no cover
@@ -86,13 +87,14 @@ class FlaskDynaconf(object):
             )
         self.kwargs = kwargs
 
-        kwargs.setdefault("ENVVAR_PREFIX_FOR_DYNACONF", "FLASK")
-
-        env_prefix = "{0}_ENV".format(
-            kwargs["ENVVAR_PREFIX_FOR_DYNACONF"]
-        )  # FLASK_ENV
-
-        kwargs.setdefault("ENV_SWITCHER_FOR_DYNACONF", env_prefix)
+        kwargs.setdefault("ENVVAR_PREFIX", "FLASK")
+        env_prefix = f"{kwargs['ENVVAR_PREFIX']}_ENV"  # FLASK_ENV
+        kwargs.setdefault("ENV_SWITCHER", env_prefix)
+        kwargs.setdefault("ENVIRONMENTS", True)
+        kwargs.setdefault("load_dotenv", True)
+        kwargs.setdefault(
+            "default_settings_paths", dynaconf.DEFAULT_SETTINGS_FILES
+        )
 
         self.dynaconf_instance = dynaconf_instance
         self.instance_relative_config = instance_relative_config
@@ -102,7 +104,10 @@ class FlaskDynaconf(object):
     def init_app(self, app, **kwargs):
         """kwargs holds initial dynaconf configuration"""
         self.kwargs.update(kwargs)
-        self.settings = self.dynaconf_instance or LazySettings(**self.kwargs)
+        self.settings = self.dynaconf_instance or dynaconf.LazySettings(
+            **self.kwargs
+        )
+        dynaconf.settings = self.settings  # rebind customized settings
         app.config = self.make_config(app)
         app.dynaconf = self.settings
 
@@ -113,7 +118,10 @@ class FlaskDynaconf(object):
         if self.dynaconf_instance:
             self.settings.update(self.kwargs)
         return DynaconfConfig(
-            root_path=root_path, defaults=app.config, _settings=self.settings
+            root_path=root_path,
+            defaults=app.config,
+            _settings=self.settings,
+            _app=app,
         )
 
 
@@ -127,17 +135,12 @@ class DynaconfConfig(Config):
     - Update with data in environmente vars `ENV_FOR_DYNACONF_`
     """
 
-    def get(self, key, default=None):
-        """Gets config from dynaconf variables
-        if variables does not exists in dynaconf try getting from
-        `app.config` to support runtime settings."""
-        return self._settings.get(key, Config.get(self, key, default))
-
-    def __init__(self, _settings, *args, **kwargs):
+    def __init__(self, _settings, _app, *args, **kwargs):
         """perform the initial load"""
         super(DynaconfConfig, self).__init__(*args, **kwargs)
         Config.update(self, _settings.store)
         self._settings = _settings
+        self._app = _app
 
     def __getitem__(self, key):
         """
@@ -162,3 +165,20 @@ class DynaconfConfig(Config):
 
     def __call__(self, name, *args, **kwargs):
         return self.get(name, *args, **kwargs)
+
+    def get(self, key, default=None):
+        """Gets config from dynaconf variables
+        if variables does not exists in dynaconf try getting from
+        `app.config` to support runtime settings."""
+        return self._settings.get(key, Config.get(self, key, default))
+
+    def load_extensions(self, key="EXTENSIONS", app=None):
+        """Loads flask extensions dynamically."""
+        app = app or self._app
+        for extension in app.config[key]:
+            # Split data in form `extension.path:factory_function`
+            module_name, factory = extension.split(":")
+            # Dynamically import extension module.
+            ext = import_module(module_name)
+            # Invoke factory passing app.
+            getattr(ext, factory)(app)

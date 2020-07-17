@@ -3,18 +3,19 @@ import io
 import os
 import pprint
 import sys
+import warnings
 import webbrowser
 from contextlib import suppress
 from pathlib import Path
 
 import click
 import toml
-from dotenv import cli as dotenv_cli
 
 from dynaconf import constants
 from dynaconf import default_settings
 from dynaconf import LazySettings
 from dynaconf import loaders
+from dynaconf import settings as legacy_settings
 from dynaconf.loaders.py_loader import get_module
 from dynaconf.utils import upperfy
 from dynaconf.utils.files import read_file
@@ -30,19 +31,16 @@ WRITERS = ["ini", "toml", "yaml", "json", "py", "redis", "vault", "env"]
 ENC = default_settings.ENCODING_FOR_DYNACONF
 
 
-def set_settings(instance=None):
+def set_settings(ctx, instance=None):
     """Pick correct settings instance and set it to a global variable."""
 
     global settings
 
     settings = None
 
-    if instance:
+    if instance is not None:
+        sys.path.insert(0, ".")
         settings = import_settings(instance)
-
-    elif "INSTANCE_FOR_DYNACONF" in os.environ:
-        settings = import_settings(os.environ["INSTANCE_FOR_DYNACONF"])
-
     elif "FLASK_APP" in os.environ:  # pragma: no cover
         with suppress(ImportError, click.UsageError):
             from flask.cli import ScriptInfo
@@ -54,7 +52,6 @@ def set_settings(instance=None):
                     "Flask app detected", fg="white", bg="bright_black"
                 )
             )
-
     elif "DJANGO_SETTINGS_MODULE" in os.environ:  # pragma: no cover
         sys.path.insert(0, os.path.abspath(os.getcwd()))
         try:
@@ -78,7 +75,21 @@ def set_settings(instance=None):
             )
 
     if settings is None:
-        settings = LazySettings()
+
+        if instance is None and "--help" not in click.get_os_args():
+            if ctx.invoked_subcommand and ctx.invoked_subcommand not in [
+                "init",
+            ]:
+                warnings.warn(
+                    "Starting on 3.x the param --instance/-i is now required. "
+                    "try passing it `dynaconf -i path.to.settings <cmd>` "
+                    "Example `dynaconf -i config.settings list` "
+                )
+                settings = legacy_settings
+            else:
+                settings = LazySettings(create_new_settings=True)
+        else:
+            settings = LazySettings()
 
 
 def import_settings(dotted_path):
@@ -92,7 +103,7 @@ def import_settings(dotted_path):
         module, name = dotted_path.rsplit(".", 1)
     else:
         raise click.UsageError(
-            "invalid path to settings instance: {}".format(dotted_path)
+            f"invalid path to settings instance: {dotted_path}"
         )
     try:
         module = importlib.import_module(module)
@@ -136,7 +147,7 @@ def open_docs(ctx, param, value):  # pragma: no cover
         return
     url = "http://dynaconf.readthedocs.io/"
     webbrowser.open(url, new=2)
-    click.echo("{} opened in browser".format(url))
+    click.echo(f"{url} opened in browser")
     ctx.exit()
 
 
@@ -144,7 +155,7 @@ def show_banner(ctx, param, value):
     """Shows dynaconf awesome banner"""
     if not value or ctx.resilient_parsing:
         return
-    set_settings()
+    set_settings(ctx)
     click.echo(settings.dynaconf_banner)
     click.echo("Learn more at: http://github.com/rochacbruno/dynaconf")
     ctx.exit()
@@ -176,13 +187,18 @@ def show_banner(ctx, param, value):
     help="Show awesome banner",
 )
 @click.option(
-    "--instance", "-i", default=None, help="Custom instance of LazySettings"
+    "--instance",
+    "-i",
+    default=None,
+    envvar="INSTANCE_FOR_DYNACONF",
+    help="Custom instance of LazySettings",
 )
-def main(instance):
+@click.pass_context
+def main(ctx, instance):
     """Dynaconf - Command Line Interface\n
     Documentation: http://dynaconf.readthedocs.io/
     """
-    set_settings(instance)
+    set_settings(ctx, instance)
 
 
 @main.command()
@@ -220,7 +236,8 @@ def main(instance):
 @click.option("--wg/--no-wg", default=True)
 @click.option("-y", default=False, is_flag=True)
 @click.option("--django", default=os.environ.get("DJANGO_SETTINGS_MODULE"))
-def init(fileformat, path, env, _vars, _secrets, wg, y, django):
+@click.pass_context
+def init(ctx, fileformat, path, env, _vars, _secrets, wg, y, django):
     """Inits a dynaconf project
     By default it creates a settings.toml and a .secrets.toml
     for [default|development|staging|testing|production|global] envs.
@@ -231,17 +248,43 @@ def init(fileformat, path, env, _vars, _secrets, wg, y, django):
     This command must run on the project's root folder or you must pass
     --path=/myproject/root/folder.
 
-    If you want to have a .env created with the ENV defined there e.g:
-    `ENV_FOR_DYNACONF=production` just pass --env=production and then .env
-    will also be created and the env defined to production.
+    The --env/-e is deprecated (kept for compatibility but unused)
     """
-    click.echo("Configuring your Dynaconf environment")
+    click.echo("⚙️  Configuring your Dynaconf environment")
+    click.echo("-" * 42)
+    path = Path(path)
 
-    env = env or settings.current_env.lower()
+    if settings.get("create_new_settings") is True:
+        filename = Path("config.py")
+        if not filename.exists():
+            with open(filename, "w") as new_settings:
+                new_settings.write(
+                    constants.INSTANCE_TEMPLATE.format(
+                        settings_files=[
+                            f"settings.{fileformat}",
+                            f".secrets.{fileformat}",
+                        ]
+                    )
+                )
+            click.echo(
+                "🐍 The file `config.py` was generated.\n"
+                "  on your code now use `from config import settings`.\n"
+                "  (you must have `config` importable in your PYTHONPATH).\n"
+            )
+        else:
+            click.echo(
+                f"⁉️  You already have a {filename} so it is not going to be\n"
+                "  generated for you, you will need to create your own \n"
+                "  settings instance e.g: config.py \n"
+                "      from dynaconf import Dynaconf \n"
+                "      settings = Dynaconf(**options)\n"
+            )
+        sys.path.append(str(path))
+        set_settings(ctx, "config.settings")
 
-    loader = importlib.import_module(
-        "dynaconf.loaders.{}_loader".format(fileformat)
-    )
+    env = settings.current_env.lower()
+
+    loader = importlib.import_module(f"dynaconf.loaders.{fileformat}_loader")
     # Turn foo=bar=zaz in {'foo': 'bar=zaz'}
     env_data = split_vars(_vars)
     _secrets = split_vars(_secrets)
@@ -251,19 +294,16 @@ def init(fileformat, path, env, _vars, _secrets, wg, y, django):
     secrets_data = {}
     if env_data:
         settings_data[env] = env_data
-        settings_data["default"] = {k: "default" for k in env_data}
+        settings_data["default"] = {k: "a default value" for k in env_data}
     if _secrets:
         secrets_data[env] = _secrets
-        secrets_data["default"] = {k: "default" for k in _secrets}
-
-    path = Path(path)
+        secrets_data["default"] = {k: "a default value" for k in _secrets}
 
     if str(path).endswith(
         constants.ALL_EXTENSIONS + ("py",)
     ):  # pragma: no cover  # noqa
         settings_path = path
-        secrets_path = path.parent / ".secrets.{}".format(fileformat)
-        dotenv_path = path.parent / ".env"
+        secrets_path = path.parent / f".secrets.{fileformat}"
         gitignore_path = path.parent / ".gitignore"
     else:
         if fileformat == "env":
@@ -278,47 +318,36 @@ def init(fileformat, path, env, _vars, _secrets, wg, y, django):
             Path.touch(settings_path)
             secrets_path = None
         else:
-            settings_path = path / "settings.{}".format(fileformat)
-            secrets_path = path / ".secrets.{}".format(fileformat)
-        dotenv_path = path / ".env"
+            settings_path = path / f"settings.{fileformat}"
+            secrets_path = path / f".secrets.{fileformat}"
         gitignore_path = path / ".gitignore"
 
-    if fileformat in ["py", "env"]:
-        # for Python and .env files writes a single env
-        settings_data = settings_data[env]
-        secrets_data = secrets_data[env]
+    if fileformat in ["py", "env"] or env == "main":
+        # for Main env, Python and .env formats writes a single env
+        settings_data = settings_data.get(env, {})
+        secrets_data = secrets_data.get(env, {})
 
     if not y and settings_path and settings_path.exists():  # pragma: no cover
         click.confirm(
-            "{} exists do you want to overwrite it?".format(settings_path),
+            f"⁉  {settings_path} exists do you want to overwrite it?",
             abort=True,
         )
 
     if not y and secrets_path and secrets_path.exists():  # pragma: no cover
         click.confirm(
-            "{} exists do you want to overwrite it?".format(secrets_path),
+            f"⁉  {secrets_path} exists do you want to overwrite it?",
             abort=True,
         )
 
-    if settings_path and settings_data:
+    if settings_path:
         loader.write(settings_path, settings_data, merge=True)
-    if secrets_path and secrets_data:
-        loader.write(secrets_path, secrets_data, merge=True)
-
-    # write .env file
-    # if env not in ['default', 'development']:  # pragma: no cover
-    if not dotenv_path.exists():  # pragma: no cover
-        Path.touch(dotenv_path)
-        dotenv_cli.set_key(str(dotenv_path), "ENV_FOR_DYNACONF", env.upper())
-    else:  # pragma: no cover
         click.echo(
-            ".env already exists please set ENV_FOR_DYNACONF={}".format(
-                env.upper()
-            )
+            f"🎛️  {settings_path.name} created to hold your settings.\n"
         )
 
-    if wg:
-        # write .gitignore
+    if secrets_path:
+        loader.write(secrets_path, secrets_data, merge=True)
+        click.echo(f"🔑 {secrets_path.name} created to hold your secrets.\n")
         ignore_line = ".secrets.*"
         comment = "\n# Ignore dynaconf secret files\n"
         if not gitignore_path.exists():
@@ -333,18 +362,30 @@ def init(fileformat, path, env, _vars, _secrets, wg, y, django):
                 with io.open(str(gitignore_path), "a+", encoding=ENC) as f:
                     f.writelines([comment, ignore_line, "\n"])
 
+        click.echo(
+            f"🙈 the {secrets_path.name} is also included in `.gitignore` \n"
+            "  beware to not push your secrets to a public repo \n"
+            "  or use dynaconf builtin support for Vault Servers.\n"
+        )
+
     if django:  # pragma: no cover
         dj_module, loaded_from = get_module({}, django)
         dj_filename = dj_module.__file__
         if Path(dj_filename).exists():
             click.confirm(
-                "{} is found do you want to add dynaconf?".format(dj_filename),
+                f"⁉  {dj_filename} is found do you want to add dynaconf?",
                 abort=True,
             )
             with open(dj_filename, "a") as dj_file:
                 dj_file.write(constants.DJANGO_PATCH)
+            click.echo("🎠  Now your Django settings are managed by Dynaconf")
         else:
-            click.echo("Django settings file not written.")
+            click.echo("❌  Django settings file not written.")
+
+    click.echo(
+        "🎉 Dynaconf is configured! read more on https://dynaconf.com\n"
+        "   Use `dynaconf -i config.settings list` to see your settings\n"
+    )
 
 
 @main.command(name="list")
@@ -403,19 +444,22 @@ def _list(env, key, more, loader, _all=False, output=None, flat=False):
 
     cur_env = settings.current_env.lower()
 
+    if cur_env == "main":
+        flat = True
+
     click.echo(
         click.style(
-            "Working in %s environment " % cur_env,
+            f"Working in {cur_env} environment ",
             bold=True,
-            bg="blue",
-            fg="bright_black",
+            bg="bright_blue",
+            fg="bright_white",
         )
     )
 
     if not loader:
         data = settings.as_dict(env=env, internal=_all)
     else:
-        identifier = "{}_{}".format(loader, cur_env)
+        identifier = f"{loader}_{cur_env}"
         data = settings._loaded_by_loaders.get(identifier, {})
         data = data or settings._loaded_by_loaders.get(loader, {})
 
@@ -427,11 +471,19 @@ def _list(env, key, more, loader, _all=False, output=None, flat=False):
             return "blue"
         return "green"
 
+    def format_setting(_k, _v):
+        key = click.style(_k, bg=color(_k), fg="white")
+        data_type = click.style(
+            f"<{type(_v).__name__}>", bg="bright_black", fg="white"
+        )
+        value = pprint.pformat(_v)
+        return f"{key}{data_type} {value}"
+
     if not key:
         datalines = "\n".join(
-            "%s: %s"
-            % (click.style(k, bg=color(k), fg="white"), pprint.pformat(v))
+            format_setting(k, v)
             for k, v in data.items()
+            if k not in data.get("RENAMED_VARS", [])
         )
         (click.echo_via_pager if more else click.echo)(datalines)
         if output:
@@ -442,17 +494,9 @@ def _list(env, key, more, loader, _all=False, output=None, flat=False):
         if not value:
             click.echo(click.style("Key not found", bg="red", fg="white"))
             return
-        click.echo(
-            "%s: %s"
-            % (
-                click.style(upperfy(key), bg=color(key), fg="white"),
-                pprint.pformat(value),
-            )
-        )
+        click.echo(format_setting(key, value))
         if output:
-            loaders.write(
-                output, {upperfy(key): value}, env=not flat and cur_env
-            )
+            loaders.write(output, {key: value}, env=not flat and cur_env)
 
     if env:
         settings.setenv()
@@ -504,7 +548,7 @@ def write(to, _vars, _secrets, path, env, y):
     """Writes data to specific source"""
     _vars = split_vars(_vars)
     _secrets = split_vars(_secrets)
-    loader = importlib.import_module("dynaconf.loaders.{}_loader".format(to))
+    loader = importlib.import_module(f"dynaconf.loaders.{to}_loader")
 
     if to in EXTS:
 
@@ -513,7 +557,7 @@ def write(to, _vars, _secrets, path, env, y):
 
         if str(path).endswith(constants.ALL_EXTENSIONS + ("py",)):
             settings_path = path
-            secrets_path = path.parent / ".secrets.{}".format(to)
+            secrets_path = path.parent / f".secrets.{to}"
         else:
             if to == "env":
                 if str(path) in (".env", "./.env"):  # pragma: no cover
@@ -528,14 +572,14 @@ def write(to, _vars, _secrets, path, env, y):
                 secrets_path = None
                 _vars.update(_secrets)
             else:
-                settings_path = path / "settings.{}".format(to)
-                secrets_path = path / ".secrets.{}".format(to)
+                settings_path = path / f"settings.{to}"
+                secrets_path = path / f".secrets.{to}"
 
         if (
             _vars and not y and settings_path and settings_path.exists()
         ):  # pragma: no cover  # noqa
             click.confirm(
-                "{} exists do you want to overwrite it?".format(settings_path),
+                f"{settings_path} exists do you want to overwrite it?",
                 abort=True,
             )
 
@@ -543,7 +587,7 @@ def write(to, _vars, _secrets, path, env, y):
             _secrets and not y and secrets_path and secrets_path.exists()
         ):  # pragma: no cover  # noqa
             click.confirm(
-                "{} exists do you want to overwrite it?".format(secrets_path),
+                f"{secrets_path} exists do you want to overwrite it?",
                 abort=True,
             )
 
@@ -555,18 +599,18 @@ def write(to, _vars, _secrets, path, env, y):
 
         if _vars and settings_path:
             loader.write(settings_path, _vars, merge=True)
-            click.echo("Data successful written to {}".format(settings_path))
+            click.echo(f"Data successful written to {settings_path}")
 
         if _secrets and secrets_path:
             loader.write(secrets_path, _secrets, merge=True)
-            click.echo("Data successful written to {}".format(secrets_path))
+            click.echo(f"Data successful written to {secrets_path}")
 
     else:  # pragma: no cover
         # lets write to external source
         with settings.using_env(env):
             # make sure we're in the correct environment
             loader.write(settings, _vars, **_secrets)
-        click.echo("Data successful written to {}".format(to))
+        click.echo(f"Data successful written to {to}")
 
 
 @main.command()
@@ -586,9 +630,7 @@ def validate(path):  # pragma: no cover
         path = path / "dynaconf_validators.toml"
 
     if not path.exists():  # pragma: no cover  # noqa
-        click.echo(
-            click.style("{} not found".format(path), fg="white", bg="red")
-        )
+        click.echo(click.style(f"{path} not found", fg="white", bg="red"))
         sys.exit(1)
 
     validation_data = toml.load(open(str(path)))
@@ -599,7 +641,7 @@ def validate(path):  # pragma: no cover
             if not isinstance(data, dict):  # pragma: no cover
                 click.echo(
                     click.style(
-                        "Invalid rule for parameter '{}'".format(name),
+                        f"Invalid rule for parameter '{name}'",
                         fg="white",
                         bg="yellow",
                     )
@@ -608,7 +650,7 @@ def validate(path):  # pragma: no cover
                 data.setdefault("env", env)
                 click.echo(
                     click.style(
-                        "Validating '{}' with '{}'".format(name, data),
+                        f"Validating '{name}' with '{data}'",
                         fg="white",
                         bg="blue",
                     )
@@ -617,14 +659,15 @@ def validate(path):  # pragma: no cover
                     Validator(name, **data).validate(settings)
                 except ValidationError as e:
                     click.echo(
-                        click.style(
-                            "Error: {}".format(e), fg="white", bg="red"
-                        )
+                        click.style(f"Error: {e}", fg="white", bg="red")
                     )
                     success = False
 
     if success:
         click.echo(click.style("Validation success!", fg="white", bg="green"))
+    else:
+        click.echo(click.style("Validation error!", fg="white", bg="red"))
+        sys.exit(1)
 
 
 if __name__ == "__main__":  # pragma: no cover

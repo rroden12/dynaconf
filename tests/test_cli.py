@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -14,12 +15,12 @@ from dynaconf.utils.files import read_file
 
 
 runner = CliRunner()
+settings = LazySettings(OPTION_FOR_TESTS=True, environments=True)
 
 
-def run(cmd, env=None):
+def run(cmd, env=None, attr="output"):
     result = runner.invoke(main, cmd, env=env, catch_exceptions=False)
-    # assert result.exit_code == 0
-    return result.output
+    return getattr(result, attr)
 
 
 def test_version():
@@ -41,19 +42,19 @@ def test_init_with_path(fileformat, tmpdir):
         path = tmpdir.join(".env")
         secs_path = None
     else:
-        path = tmpdir.join("settings.{}".format(fileformat))
-        secs_path = tmpdir.join("/.secrets.{}".format(fileformat))
+        path = tmpdir.join(f"settings.{fileformat}")
+        secs_path = tmpdir.join(f"/.secrets.{fileformat}")
 
     for _ in (1, 2):
         run(
             [
                 "init",
-                "--format={}".format(fileformat),
+                f"--format={fileformat}",
                 "-v",
                 "name=bruno",
                 "-s",
                 "token=secret for",
-                "--path={}".format(str(tmpdir)),
+                f"--path={str(tmpdir)}",
                 "-y",
             ]
         )
@@ -82,59 +83,69 @@ def test_init_with_path(fileformat, tmpdir):
 def test_list(testdir):
     """Test list command shows only user defined vars"""
 
-    result = run(["list"], env={"ROOT_PATH_FOR_DYNACONF": testdir})
-    assert "DOTENV_STR: 'hello'" in result
-    assert "GLOBAL_ENV_FOR_DYNACONF: 'DYNACONF'" not in result
+    result = run(
+        ["list"],
+        env={
+            "ROOT_PATH_FOR_DYNACONF": testdir,
+            "INSTANCE_FOR_DYNACONF": "tests.config.settings",
+        },
+    )
+    assert "DOTENV_STR<str> 'hello'" in result
+    assert "GLOBAL_ENV_FOR_DYNACONF<str> 'DYNACONF'" not in result
+
+
+def test_help_dont_require_instance(testdir):
+    result = os.system("dynaconf list --help")
+    assert result == 0
 
 
 def test_list_export_json(testdir):
     result = run(
-        ["list", "-o", "sets.json"], env={"ROOT_PATH_FOR_DYNACONF": testdir}
+        ["-i", "tests.config.settings", "list", "-o", "sets.json"],
+        env={"ROOT_PATH_FOR_DYNACONF": testdir},
     )
-    assert "DOTENV_STR: 'hello'" in result
+    # breakpoint()
+    assert "DOTENV_STR<str> 'hello'" in result
     assert "DOTENV_STR" in read_file("sets.json")
-    assert (
-        json.loads(read_file("sets.json"))["development"]["DOTENV_STR"]
-        == "hello"
-    )
-    assert (
-        json.loads(read_file("sets.json"))["development"]["DOTENV_FLOAT"]
-        == 4.2
-    )
+    assert json.loads(read_file("sets.json"))["DOTENV_STR"] == "hello"
+    assert json.loads(read_file("sets.json"))["DOTENV_FLOAT"] == 4.2
 
 
 def test_list_with_all(testdir):
     """Test list command with --all includes interval vars"""
-    result = run(["list", "-a"], env={"ROOT_PATH_FOR_DYNACONF": testdir})
-    assert "DOTENV_STR: 'hello'" in result
-    assert "GLOBAL_ENV_FOR_DYNACONF: 'DYNACONF'" in result
+    result = run(
+        ["-i", "tests.config.settings", "list", "-a"],
+        env={"ROOT_PATH_FOR_DYNACONF": testdir},
+    )
+    assert "DOTENV_STR<str> 'hello'" in result
+    assert "ENVVAR_PREFIX_FOR_DYNACONF<str> 'DYNACONF'" in result
 
 
 @pytest.mark.parametrize("loader", WRITERS)
 def test_list_with_loader(loader):
-    result = run(["list", "-l", loader])
-    assert "Working in development environment" in result
+    result = run(["-i", "tests.config.settings", "list", "-l", loader])
+    assert "Working in main environment" in result
 
 
 @pytest.mark.parametrize("env", ["default", "development"])
-def test_list_with_env(env):
-    result = run(["list", "-e", env])
-    assert "Working in {} environment".format(env) in result
-
-
-settings = LazySettings(OPTION_FOR_TESTS=True)
+def test_list_with_env(testdir, env):
+    result = run(
+        ["-i", "tests.config.settingsenv", "list", "-e", env],
+        env={"ROOT_PATH_FOR_DYNACONF": testdir},
+    )
+    assert f"Working in {env} environment" in result
 
 
 def test_list_with_instance():
     result = run(["-i", "tests.test_cli.settings", "list"])
-    assert "OPTION_FOR_TESTS: True" in result
+    assert "OPTION_FOR_TESTS<bool> True" in result
 
 
 def test_list_with_instance_from_env():
     result = run(
         ["list"], {"INSTANCE_FOR_DYNACONF": "tests.test_cli.settings"}
     )
-    assert "OPTION_FOR_TESTS: True" in result
+    assert "OPTION_FOR_TESTS<bool> True" in result
 
 
 def test_instance_attribute_error():
@@ -153,24 +164,31 @@ def test_instance_pypath_error():
 
 
 def test_list_with_key():
-    result = run(["list", "-k", "DOTENV_STR"])
-    assert "DOTENV_STR: 'hello'" in result
+    result = run(["-i", "tests.config.settings", "list", "-k", "DOTENV_STR"])
+    assert "DOTENV_STR<str> 'hello'" in result
 
 
 def test_list_with_key_export_json(tmpdir):
-    result = run(["list", "-k", "DOTENV_STR", "-o", "sets.json"])
-    assert "DOTENV_STR: 'hello'" in result
-    assert "DOTENV_STR" in read_file("sets.json")
-    assert (
-        json.loads(read_file("sets.json"))["development"]["DOTENV_STR"]
-        == "hello"
+    result = run(
+        [
+            "-i",
+            "tests.config.settings",
+            "list",
+            "-k",
+            "DOTENV_STR",
+            "-o",
+            "sets.json",
+        ]
     )
+    assert "DOTENV_STR<str> 'hello'" in result
+    assert "DOTENV_STR" in read_file("sets.json")
+    assert json.loads(read_file("sets.json"))["DOTENV_STR"] == "hello"
     with pytest.raises(KeyError):
-        json.loads(read_file("sets.json"))["development"]["DOTENV_FLOAT"]
+        json.loads(read_file("sets.json"))["DOTENV_FLOAT"]
 
 
 def test_list_with_missing_key():
-    result = run(["list", "-k", "NOTEXISTS"])
+    result = run(["-i", "tests.config.settings", "list", "-k", "NOTEXISTS"])
     assert "Key not found" in result
 
 
@@ -181,10 +199,10 @@ def test_write(writer, env, onlydir, tmpdir):
     if onlydir is True:
         tmpfile = tmpdir
     else:
-        tmpfile = tmpdir.join("settings.{}".format(writer))
+        tmpfile = tmpdir.join(f"settings.{writer}")
 
-    settingspath = tmpdir.join("settings.{}".format(writer))
-    secretfile = tmpdir.join(".secrets.{}".format(writer))
+    settingspath = tmpdir.join(f"settings.{writer}")
+    secretfile = tmpdir.join(f".secrets.{writer}")
     env_file = tmpdir.join(".env")
 
     result = run(
@@ -203,7 +221,7 @@ def test_write(writer, env, onlydir, tmpdir):
         ]
     )
     if writer != "env":
-        assert "Data successful written to {}".format(settingspath) in result
+        assert f"Data successful written to {settingspath}" in result
         assert "TESTVALUE" in read_file(
             str(settingspath), encoding=default_settings.ENCODING_FOR_DYNACONF
         )
@@ -211,7 +229,7 @@ def test_write(writer, env, onlydir, tmpdir):
             str(secretfile), encoding=default_settings.ENCODING_FOR_DYNACONF
         )
     else:
-        assert "Data successful written to {}".format(env_file) in result
+        assert f"Data successful written to {env_file}" in result
         assert "TESTVALUE" in read_file(
             str(env_file), encoding=default_settings.ENCODING_FOR_DYNACONF
         )
@@ -238,7 +256,7 @@ def test_write_dotenv(path, tmpdir):
         ]
     )
 
-    assert "Data successful written to {}".format(env_file) in result
+    assert f"Data successful written to {env_file}" in result
     assert "TESTVALUE" in read_file(
         str(env_file), encoding=default_settings.ENCODING_FOR_DYNACONF
     )
@@ -301,13 +319,25 @@ def test_validate(tmpdir):
     toml_invalid.write(TOML_INVALID)
 
     result = run(
-        ["validate", "-p", str(validation_file)],
+        [
+            "-i",
+            "tests.config.settingsenv",
+            "validate",
+            "-p",
+            str(validation_file),
+        ],
         {"SETTINGS_FILE_FOR_DYNACONF": str(toml_valid)},
     )
     assert "Validation success!" in result
 
     result = run(
-        ["validate", "-p", str(Path(str(validation_file)).parent)],
+        [
+            "-i",
+            "tests.test_cli.settings",
+            "validate",
+            "-p",
+            str(Path(str(validation_file)).parent),
+        ],
         {"SETTINGS_FILE_FOR_DYNACONF": str(toml_invalid)},
     )
     assert "age must lte 30 but it is 35 in env default" in result

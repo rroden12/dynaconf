@@ -18,12 +18,16 @@ def test_deleted_raise(settings):
     assert settings.get("TODELETE") is None
 
 
-def test_accepts_only_upper(settings):
-    """Only upper case names are allowed
+def test_accepts_only_upper():
+    """Only upper case names are allowed if lowercase_read=False
     lower case are converted"""
+
+    settings = LazySettings(debug=True, lowercase_read=False)
+
     assert settings.DEBUG is True
     assert settings.get("debug") is True
     assert settings.get("DEBUG") is True
+    assert settings.get("Debug") is True
     assert settings.exists("debug")
     with pytest.raises(AttributeError):
         # access in lower case is not allowed
@@ -282,14 +286,12 @@ def test_local_set_merge_list_unique(settings):
 
 def test_set_explicit_merge_token(tmpdir):
     data = {
-        "default": {
-            "a_list": [1, 2],
-            "b_list": [1],
-            "a_dict": {"name": "Bruno"},
-        }
+        "a_list": [1, 2],
+        "b_list": [1],
+        "a_dict": {"name": "Bruno"},
     }
     toml_loader.write(str(tmpdir.join("settings.toml")), data, merge=False)
-    settings = LazySettings()
+    settings = LazySettings(settings_file="settings.toml")
     assert settings.A_LIST == [1, 2]
     assert settings.B_LIST == [1]
     assert settings.A_DICT == {"name": "Bruno"}
@@ -343,7 +345,7 @@ def test_set_new_merge_issue_241_1(tmpdir):
         }
     }
     toml_loader.write(str(tmpdir.join("settings.toml")), data, merge=False)
-    settings = LazySettings()
+    settings = LazySettings(environments=True, settings_file="settings.toml")
     assert settings.NAME == "Bruno"
     assert settings.COLORS == ["red", "green"]
     assert settings.DATA.links == {
@@ -375,7 +377,7 @@ def test_set_new_merge_issue_241_2(tmpdir):
         str(tmpdir.join("settings.local.toml")), data, merge=False
     )
 
-    settings = LazySettings()
+    settings = LazySettings(environments=True, settings_file="settings.toml")
     assert settings.NAME == "Bruno"
     assert settings.COLORS == ["red", "green", "blue"]
     assert settings.DATA.links == {
@@ -387,28 +389,24 @@ def test_set_new_merge_issue_241_2(tmpdir):
 
 def test_set_new_merge_issue_241_3(tmpdir):
     data = {
-        "default": {
-            "name": "Bruno",
-            "colors": ["red", "green"],
-            "data": {
-                "links": {"twitter": "rochacbruno", "site": "brunorocha.org"}
-            },
-        }
+        "name": "Bruno",
+        "colors": ["red", "green"],
+        "data": {
+            "links": {"twitter": "rochacbruno", "site": "brunorocha.org"}
+        },
     }
     toml_loader.write(str(tmpdir.join("settings.toml")), data, merge=False)
 
     data = {
-        "default": {
-            "name": "Tommy Shelby",
-            "colors": {"dynaconf_merge": ["yellow", "pink"]},
-            "data": {"links": {"site": "pb.com"}},
-        }
+        "name": "Tommy Shelby",
+        "colors": {"dynaconf_merge": ["yellow", "pink"]},
+        "data": {"links": {"site": "pb.com"}},
     }
     toml_loader.write(
         str(tmpdir.join("settings.local.toml")), data, merge=False
     )
 
-    settings = LazySettings()
+    settings = LazySettings(settings_file="settings.toml")
     assert settings.NAME == "Tommy Shelby"
     assert settings.COLORS == ["red", "green", "yellow", "pink"]
     assert settings.DATA.links == {"site": "pb.com"}
@@ -416,22 +414,20 @@ def test_set_new_merge_issue_241_3(tmpdir):
 
 def test_set_new_merge_issue_241_4(tmpdir):
     data = {
-        "default": {
-            "name": "Bruno",
-            "colors": ["red", "green"],
-            "data": {
-                "links": {"twitter": "rochacbruno", "site": "brunorocha.org"}
-            },
-        }
+        "name": "Bruno",
+        "colors": ["red", "green"],
+        "data": {
+            "links": {"twitter": "rochacbruno", "site": "brunorocha.org"}
+        },
     }
     toml_loader.write(str(tmpdir.join("settings.toml")), data, merge=False)
 
-    data = {"default": {"data__links__telegram": "t.me/rochacbruno"}}
+    data = {"data__links__telegram": "t.me/rochacbruno"}
     toml_loader.write(
         str(tmpdir.join("settings.local.toml")), data, merge=False
     )
 
-    settings = LazySettings()
+    settings = LazySettings(settings_file="settings.toml")
     assert settings.NAME == "Bruno"
     assert settings.COLORS == ["red", "green"]
     assert settings.DATA.links == {
@@ -458,7 +454,7 @@ def test_set_new_merge_issue_241_5(tmpdir):
         str(tmpdir.join("settings.local.toml")), data, merge=False
     )
 
-    settings = LazySettings()
+    settings = LazySettings(environments=True, settings_file="settings.toml")
     assert settings.NAME == "Bruno"
     assert settings.COLORS == ["red", "green", "blue"]
     assert settings.DATA.links == {
@@ -586,30 +582,40 @@ def test_dotted_set_with_merge(settings):
     assert settings.DATABASES["default"].keys() == start_data["default"].keys()
     settings.DATABASES.default.NAME == "bladb"
 
-    # Add new item to the list
+    # Replace items on a list
     assert settings.DATABASES.default.PARAMS == ["a", "b", "c"]
     settings.set("DATABASES.default.PARAMS", ["d", "e"])
     assert settings.DATABASES != start_data
     assert settings.DATABASES["default"].keys() == start_data["default"].keys()
-    assert settings.DATABASES.default.PARAMS == ["a", "b", "c", "d", "e"]
+    assert settings.DATABASES.default.PARAMS == ["d", "e"]
 
-    # Add new item to the dict
+    # Add new items to the list
+    settings.set("DATABASES.default.PARAMS", '@merge ["e", "f", "g"]')
+    assert settings.DATABASES != start_data
+    assert settings.DATABASES["default"].keys() == start_data["default"].keys()
+    assert settings.DATABASES.default.PARAMS == ["d", "e", "e", "f", "g"]
+
+    # Replace a dict
     assert settings.DATABASES.default.ATTRS == {"a": 1, "b": 2}
     settings.set("DATABASES.default.ATTRS", {"c": 3})
     assert settings.DATABASES != start_data
     assert settings.DATABASES["default"].keys() == start_data["default"].keys()
-    assert settings.DATABASES.default.ATTRS == {"a": 1, "b": 2, "c": 3}
+    assert settings.DATABASES.default.ATTRS == {"c": 3}
+
+    # Add new item to the dict
+    settings.set("DATABASES.default.ATTRS", '@merge {"b": 2, "d": 4}')
+    assert settings.DATABASES != start_data
+    assert settings.DATABASES["default"].keys() == start_data["default"].keys()
+    assert settings.DATABASES.default.ATTRS == {"b": 2, "c": 3, "d": 4}
 
     # Replace the entire list
-    settings.set(
-        "DATABASES.default.PARAMS", '@reset ["x", "y", "z"]', tomlfy=True
-    )
+    settings.set("DATABASES.default.PARAMS", ["x", "y", "z"], tomlfy=True)
     assert settings.DATABASES != start_data
     assert settings.DATABASES["default"].keys() == start_data["default"].keys()
     assert settings.DATABASES.default.PARAMS == ["x", "y", "z"]
 
     # Replace the entire dict
-    settings.set("DATABASES.default.ATTRS", "@reset {x=26}", tomlfy=True)
+    settings.set("DATABASES.default.ATTRS", "{x=26}", tomlfy=True)
     assert settings.DATABASES != start_data
     assert settings.DATABASES["default"].keys() == start_data["default"].keys()
     assert settings.DATABASES.default.ATTRS == {"x": 26}
@@ -626,7 +632,7 @@ def test_from_env_method(clean_env, tmpdir):
     }
     toml_path = str(tmpdir.join("base_settings.toml"))
     toml_loader.write(toml_path, data, merge=False)
-    settings = LazySettings(SETTINGS_FILE_FOR_DYNACONF=toml_path)
+    settings = LazySettings(settings_file=toml_path, environments=True)
     settings.set("ARBITRARY_KEY", "arbitrary value")
 
     assert settings.VALUE == "From development env"
@@ -693,17 +699,13 @@ def test_from_env_method(clean_env, tmpdir):
 
 def test_preload(tmpdir):
     data = {
-        "default": {
-            "data": {
-                "links": {"twitter": "rochacbruno", "site": "brunorocha.org"}
-            }
-        }
+        "data": {"links": {"twitter": "rochacbruno", "site": "brunorocha.org"}}
     }
     toml_loader.write(str(tmpdir.join("preload.toml")), data, merge=False)
 
     data = {
         "dynaconf_merge": True,
-        "default": {"data": {"links": {"github": "rochacbruno.github.io"}}},
+        "data": {"links": {"github": "rochacbruno.github.io"}},
     }
     toml_loader.write(
         str(tmpdir.join("main_settings.toml")), data, merge=False
@@ -711,9 +713,7 @@ def test_preload(tmpdir):
 
     data = {
         "dynaconf_merge": True,
-        "default": {
-            "data": {"links": {"mastodon": "mastodon.social/@rochacbruno"}}
-        },
+        "data": {"links": {"mastodon": "mastodon.social/@rochacbruno"}},
     }
     toml_loader.write(str(tmpdir.join("included.toml")), data, merge=False)
 
@@ -729,3 +729,94 @@ def test_preload(tmpdir):
         "github": "rochacbruno.github.io",
         "mastodon": "mastodon.social/@rochacbruno",
     }
+
+
+def test_config_aliases(tmpdir):
+    data = {
+        "hello": {"name": "Bruno", "passwd": 1234},
+        "awesome": {"passwd": 5678},
+    }
+    toml_loader.write(str(tmpdir.join("blarg.toml")), data, merge=False)
+
+    settings = LazySettings(
+        envvar_prefix="BRUCE",
+        core_loaders=["TOML"],
+        loaders=["dynaconf.loaders.env_loader"],
+        default_env="hello",
+        env_switcher="BRUCE_ENV",
+        prelaod=[],
+        settings_file=["blarg.toml"],
+        includes=[],
+        ENV="awesome",
+        environments=True,
+    )
+
+    assert settings.NAME == "Bruno"
+    assert settings.PASSWD == 5678
+
+    assert settings.ENVVAR_PREFIX_FOR_DYNACONF == "BRUCE"
+    assert settings.CORE_LOADERS_FOR_DYNACONF == ["TOML"]
+    assert settings.LOADERS_FOR_DYNACONF == ["dynaconf.loaders.env_loader"]
+    assert len(settings._loaders) == 1
+    assert settings.DEFAULT_ENV_FOR_DYNACONF == "hello"
+    assert settings.ENV_SWITCHER_FOR_DYNACONF == "BRUCE_ENV"
+    assert settings.PRELOAD_FOR_DYNACONF == []
+    assert settings.SETTINGS_FILE_FOR_DYNACONF == ["blarg.toml"]
+    assert settings.INCLUDES_FOR_DYNACONF == []
+    assert settings.ENV_FOR_DYNACONF == "awesome"
+    assert settings.current_env == "awesome"
+
+
+def test_envless_mode(tmpdir):
+    data = {
+        "foo": "bar",
+        "hello": "world",
+        "default": 1,
+        "databases": {"default": {"port": 8080}},
+    }
+    toml_loader.write(str(tmpdir.join("settings.toml")), data)
+
+    settings = LazySettings(
+        settings_file="settings.toml"
+    )  # already the default
+    assert settings.FOO == "bar"
+    assert settings.HELLO == "world"
+    assert settings.DEFAULT == 1
+    assert settings.DATABASES.default.port == 8080
+
+
+def test_lowercase_read_mode(tmpdir):
+    """
+    Starting on 3.0.0 lowercase keys are enabled by default
+    """
+    data = {
+        "foo": "bar",
+        "hello": "world",
+        "default": 1,
+        "databases": {"default": {"port": 8080}},
+    }
+    toml_loader.write(str(tmpdir.join("settings.toml")), data)
+
+    # settings_files mispelled.. should be `settings_file`
+    settings = LazySettings(settings_files="settings.toml")
+
+    assert settings.FOO == "bar"
+    assert settings.foo == "bar"
+    assert settings.HELLO == "world"
+    assert settings.hello == "world"
+    assert settings.DEFAULT == 1
+    assert settings.default == 1
+    assert settings.DATABASES.default.port == 8080
+    assert settings.databases.default.port == 8080
+
+    assert "foo" in settings
+    assert "FOO" in settings
+
+    # test __dir__
+    results = dir(settings)
+    assert "foo" in results
+    assert "FOO" in results
+
+    results = dir(settings.databases)
+    assert "default" in results
+    assert "DEFAULT" in results

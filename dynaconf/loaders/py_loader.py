@@ -9,7 +9,6 @@ from pathlib import Path
 from dynaconf import default_settings
 from dynaconf.utils import DynaconfDict
 from dynaconf.utils import object_merge
-from dynaconf.utils import raw_logger
 from dynaconf.utils import upperfy
 from dynaconf.utils.files import find_file
 
@@ -17,15 +16,8 @@ from dynaconf.utils.files import find_file
 def load(obj, settings_module, identifier="py", silent=False, key=None):
     """Tries to import a python module"""
     mod, loaded_from = get_module(obj, settings_module, silent)
-
-    if mod and loaded_from:
-        obj.logger.debug("py_loader: {}".format(mod))
-    else:
-        obj.logger.debug(
-            "py_loader: %s (Ignoring, Not Found)", settings_module
-        )
+    if not (mod and loaded_from):
         return
-
     load_from_python_object(obj, mod, settings_module, key, identifier)
 
 
@@ -40,11 +32,8 @@ def load_from_python_object(
         if setting[:3].isupper():
             if key is None or key == setting:
                 setting_value = getattr(mod, setting)
-                obj.logger.debug(
-                    "py_loader: loading %s: %s (%s)",
-                    setting,
-                    "*****" if "secret" in settings_module else setting_value,
-                    identifier,
+                secret = (
+                    "*****" if "secret" in settings_module else setting_value
                 )
                 obj.set(
                     setting,
@@ -80,13 +69,10 @@ def try_to_load_from_py_module_name(
 
 
 def get_module(obj, filename, silent=False):
-    logger = raw_logger()
     try:
-        logger.debug("Trying to import %s", filename)
         mod = importlib.import_module(filename)
         loaded_from = "module"
     except (ImportError, TypeError):
-        logger.debug("Cant import %s trying to load from file", filename)
         mod = import_from_filename(obj, filename, silent=silent)
         if mod and not mod._is_error:
             loaded_from = "filename"
@@ -101,16 +87,16 @@ def import_from_filename(obj, filename, silent=False):  # pragma: no cover
     if filename in [item.filename for item in inspect.stack()]:
         raise ImportError(
             "Looks like you are loading dynaconf "
-            "from inside the {} file and then it is trying "
+            f"from inside the {filename} file and then it is trying "
             "to load itself entering in a circular reference "
             "problem. To solve it you have to "
             "invoke your program from another root folder "
-            "or rename your program file.".format(filename)
+            "or rename your program file."
         )
 
     _find_file = getattr(obj, "find_file", find_file)
     if not filename.endswith(".py"):
-        filename = "{0}.py".format(filename)
+        filename = f"{filename}.py"
 
     if filename in default_settings.SETTINGS_FILE_FOR_DYNACONF:
         silent = True
@@ -124,13 +110,11 @@ def import_from_filename(obj, filename, silent=False):  # pragma: no cover
         ) as config_file:
             exec(compile(config_file.read(), filename, "exec"), mod.__dict__)
     except IOError as e:
-        e.strerror = ("py_loader: error loading file (%s %s)\n") % (
-            e.strerror,
-            filename,
+        e.strerror = (
+            f"py_loader: error loading file " f"({e.strerror} {filename})\n"
         )
         if silent and e.errno in (errno.ENOENT, errno.EISDIR):
             return
-        raw_logger().debug(e.strerror)
         mod._is_error = True
     return mod
 
@@ -153,8 +137,5 @@ def write(settings_path, settings_data, merge=True):
         encoding=default_settings.ENCODING_FOR_DYNACONF,
     ) as f:
         f.writelines(
-            [
-                "{} = {}\n".format(upperfy(k), repr(v))
-                for k, v in settings_data.items()
-            ]
+            [f"{upperfy(k)} = {repr(v)}\n" for k, v in settings_data.items()]
         )

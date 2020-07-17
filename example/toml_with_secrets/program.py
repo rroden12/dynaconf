@@ -1,7 +1,11 @@
 from dynaconf import LazySettings
 
 settings = LazySettings(
-    ENV_FOR_DYNACONF="example", ENVVAR_PREFIX_FOR_DYNACONF="PROGRAM"
+    environments=True,
+    ENV_FOR_DYNACONF="example",
+    ENVVAR_PREFIX_FOR_DYNACONF="PROGRAM",
+    load_dotenv=True,
+    settings_files="settings.toml;.secrets.toml",
 )
 
 print(settings.USERNAME)
@@ -18,9 +22,7 @@ assertions = {
 for key, value in assertions.items():
     found = settings.get(key)
     assert found == getattr(settings, key)
-    assert (
-        found == value
-    ), "expected: {key}: [{value}] found: [{found}]".format(**locals())
+    assert found == value, f"expected: {key}: [{value}] found: [{found}]"
 
 
 assertions = {"SERVER": "fromenv.com", "USERNAME": "foo"}
@@ -28,9 +30,7 @@ assertions = {"SERVER": "fromenv.com", "USERNAME": "foo"}
 for key, value in assertions.items():
     found = settings.from_env("development").get(key)
     assert found == getattr(settings.from_env("development"), key)
-    assert (
-        found == value
-    ), "expected: {key}: [{value}] found: [{found}]".format(**locals())
+    assert found == value, f"expected: {key}: [{value}] found: [{found}]"
 
 assertions = {
     "SERVER": "fromenv.com",
@@ -41,6 +41,4 @@ assertions = {
 for key, value in assertions.items():
     found = settings.from_env("development", keep=True).get(key)
     assert found == getattr(settings.from_env("development", keep=True), key)
-    assert (
-        found == value
-    ), "expected: {key}: [{value}] found: [{found}]".format(**locals())
+    assert found == value, f"expected: {key}: [{value}] found: [{found}]"

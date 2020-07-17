@@ -2,6 +2,439 @@ Changelog
 =========
 
 
+3.0.0 (2020-06-29)
+------------------
+- Release version 3.0.0. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (5):
+            Release version 3.0.0rc2
+            Improvements on CLI and init command (#363)
+            Writing new docs page 1 (#364)
+            Add netlify (#366)
+            Add netlify runtime file...
+- Add netlify runtime file... [Bruno Rocha]
+- Add netlify (#366) [Bruno Rocha]
+- Writing new docs page 1 (#364) [Bruno Rocha]
+
+  * porting docs to mkdocs
+
+  * Docs First Page
+
+  * New docs ok
+- Improvements on CLI and init command (#363) [Bruno Rocha]
+- Release version 3.0.0rc2. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bernardo Gomes (2):
+            Adding f string (#319)
+            Added little information about how dev into this project. (#321)
+
+      Bruno Rocha (18):
+            Release version 3.0.0rc1
+            Better exception handling on env_loader (#316)
+            Add support for config aliases (#332)
+            Add ENVLESS_MODE (#337)
+            Fix #272 allow access of lowercase keys (#338)
+            Fix #298 allow auto complete for editors and console (#339)
+            Vendoring dependencies Fix #301 (#345)
+            Clean tox installation for local testing (#346)
+            Validator improvements on conditions (#353)
+            Add note about quoting in env vars (#347)
+            DEPRECATED global settings object.
+            DEPRECATED global settings object. (#356)
+            Lowecase read allowed by default (#357)
+            Merge branch 'master' of github.com:rochacbruno/dynaconf
+            envless by default - breaking change ⚠️ (#358)
+            dotenv is no more loaded by default (#360)
+            No more loading of `settings.*` by default (#361)
+            NO more logger and debug messages (#362)
+
+      Douglas Maciel d'Auriol Souza (1):
+            Insert news validator conditions: (len_eq, len_ne, len_min, len_max, contd) (#328)
+
+      Jeff Wayne (1):
+            s/DYNACONF_ENV/ENV_FOR_DYNACONF (#335)
+
+      Marcos Benevides (1):
+            Fix minor typo in Flask extension docs (#318)
+
+      Nicholas Nadeau, Ph.D., P.Eng (1):
+            Fixed comma typo (#334)
+
+      sfunkhouser (1):
+            Add option to override default mount_point for vault (#349)
+- NO more logger and debug messages (#362) [Bruno Rocha]
+
+  * logger and DEBUG_LEVEL has gone.
+
+  * Add logger as a backwards compat method
+- No more loading of `settings.*` by default (#361) [Bruno Rocha]
+- Dotenv is no more loaded by default (#360) [Bruno Rocha]
+- Envless by default - breaking change ⚠️ (#358) [Bruno Rocha]
+
+  * ⚠️ Turning the default to be the envless mode (this is breaking change) ⚠️
+
+  ⚠️ THIS IS BREAKING CHANGE ⚠️
+
+  * envless by default is done
+
+  * Fix redis and vault tests
+
+  * CLI default to global instance with warnings
+- Merge branch 'master' of github.com:rochacbruno/dynaconf. [Bruno
+  Rocha]
+- Lowecase read allowed by default (#357) [Bruno Rocha]
+
+  * DEPRECATED global settings object.
+
+  No more `from dynaconf import settings`
+
+  * Lower case first level keys are now allowed by default
+- DEPRECATED global settings object. (#356) [Bruno Rocha]
+
+  No more `from dynaconf import settings`
+- DEPRECATED global settings object. [Bruno Rocha]
+
+  No more `from dynaconf import settings`
+- Add note about quoting in env vars (#347) [Bruno Rocha]
+- Validator improvements on conditions (#353) [Bruno Rocha]
+
+  * Validators improvements
+
+  * add cast argument to validators
+- Add option to override default mount_point for vault (#349)
+  [sfunkhouser]
+- Clean tox installation for local testing (#346) [Bruno Rocha]
+- Vendoring dependencies Fix #301 (#345) [Bruno Rocha]
+- Fix #298 allow auto complete for editors and console (#339) [Bruno
+  Rocha]
+
+  implemented `__dir__` on Settings and Dynabox
+- Fix #272 allow access of lowercase keys (#338) [Bruno Rocha]
+
+  - `settings.lowercase_key` is allowed
+  - `settings.dynaconf` is a proxy to internal methods
+  - `settings.__reserved_attributes` validates key names
+  - `LazySettings __init__ parameters can receive lower case configs`
+- Add ENVLESS_MODE (#337) [Bruno Rocha]
+- S/DYNACONF_ENV/ENV_FOR_DYNACONF (#335) [Jeff Wayne]
+- Fixed comma typo (#334) [Nicholas Nadeau, Ph.D., P.Eng]
+- Add support for config aliases (#332) [Bruno Rocha]
+
+  All _FOR_DYNACONF can now be aliased when passing to LazySettings.
+- Insert news validator conditions: (len_eq, len_ne, len_min, len_max,
+  contd) (#328) [Bruno Rocha, Douglas Maciel d'Auriol Souza]
+
+  * Insert news validator conditions: len_eq, len_ne, len_min, len_max, contd
+
+  * Insert news validator conditions: len_eq, len_ne, len_min, len_max, contd
+
+  * Update validator_conditions.py
+
+  * Update test_validators_conditions.py
+
+  * Checked: Flake8
+
+  * Black sugest
+
+  * Change of the term contd to cont, in order to avoid false interpretation.
+- Better exception handling on env_loader (#316) [Bruno Rocha]
+- Added little information about how dev into this project. (#321)
+  [Bernardo Gomes]
+- Adding f string (#319) [Bernardo Gomes]
+
+  * First test to change to f-string
+
+  * second change to f-string
+
+  * Removed 95% of .format(
+
+  * Removed % from code.
+
+  * forget format.
+
+  * Fixing flaked reports.
+
+  * Fixing flaked reports-v2.
+
+  * make run-pre-commit command executed.
+
+  * Little bugfix f of f-string inside of the string.
+- Fix minor typo in Flask extension docs (#318) [Marcos Benevides]
+- Release version 3.0.0rc1. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (8):
+            Release version 2.2.3
+            Changed text format and fixed tests
+            Merge branch '304-ShowDataTypeListCli'
+            Fix issue #305 - printing and exporting LazyFormat (#312)
+            Fix #288 - Nullable values (#300)
+            Default to ruamel.yaml when it is available. (#313)
+            Fix #306 - does not defaults to merge, deprecated reset - [Breaking Change] (#315)
+            HOTFIX - tox.ini drops 3.5
+
+      Tiago Cordeiro (1):
+            Added OSX builds to the Azure Pipeline (#307)
+
+      Vicente Marçal (1):
+            Changed CLI list to show data type of the envvars to fix #304
+
+      dependabot-preview[bot] (1):
+            Unpinning python-box, removing box_it_up and default_box arguments (#279)
+- HOTFIX - tox.ini drops 3.5. [Bruno Rocha]
+- Fix #306 - does not defaults to merge, deprecated reset - [Breaking
+  Change] (#315) [Bruno Rocha]
+
+  - Don't default to `merge` for `__` variables
+  - Made `@merge` more explicit and smart
+  - Deprecated `@reset`
+- Unpinning python-box, removing box_it_up and default_box arguments
+  (#279) [Bruno Rocha, dependabot-preview[bot]]
+- Default to ruamel.yaml when it is available. (#313) [Bruno Rocha]
+- Fix #288 - Nullable values (#300) [Bruno Rocha]
+
+  * Attempt to fix #288 (needs more debugging)
+
+  * Fixing bug on DynaBox.get
+- Fix issue #305 - printing and exporting LazyFormat (#312) [Bruno
+  Rocha]
+- Merge branch '304-ShowDataTypeListCli' [Bruno Rocha]
+- Changed text format and fixed tests. [Bruno Rocha]
+- Changed CLI list to show data type of the envvars to fix #304.
+  [Vicente Marçal]
+- Added OSX builds to the Azure Pipeline (#307) [Tiago Cordeiro]
+
+  * Added OSX builds to the Azure Pipeline
+
+  * Added OSX builds to the Azure Pipeline
+
+  * skip docker tests on macOS
+- Release version 2.2.3. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (7):
+            Release version 2.2.2
+            Fix #273 add Flask load extensions method.
+            add t.me badge fix #262
+            Fix #145 allow lazy format using os.environ and settings values.
+            Overriding strategy test
+            Fix #203 document the usage with pytest (with examples)
+            unpin dependencies
+
+      Hildeberto (2):
+            Fix pre-commit to run python3 rather than python3.7
+            Merge pull request #281 from hilam/fix_pre_commit
+
+      JSP (1):
+            fix object_merge issue #285 with  meta value
+
+      dependabot-preview[bot] (2):
+            Update python-dotenv requirement from <=0.10.3 to <0.10.6
+            Update python-dotenv requirement from <0.10.6 to <0.11.1
+
+
+2.2.3 (2020-02-28)
+------------------
+- Release version 2.2.3. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (7):
+            Release version 2.2.2
+            Fix #273 add Flask load extensions method.
+            add t.me badge fix #262
+            Fix #145 allow lazy format using os.environ and settings values.
+            Overriding strategy test
+            Fix #203 document the usage with pytest (with examples)
+            unpin dependencies
+
+      Hildeberto (2):
+            Fix pre-commit to run python3 rather than python3.7
+            Merge pull request #281 from hilam/fix_pre_commit
+
+      JSP (1):
+            fix object_merge issue #285 with  meta value
+
+      dependabot-preview[bot] (2):
+            Update python-dotenv requirement from <=0.10.3 to <0.10.6
+            Update python-dotenv requirement from <0.10.6 to <0.11.1
+- Unpin dependencies. [Bruno Rocha]
+- Update python-dotenv requirement from <0.10.6 to <0.11.1. [dependabot-
+  preview[bot]]
+
+  Updates the requirements on [python-dotenv](https://github.com/theskumar/python-dotenv) to permit the latest version.
+  - [Release notes](https://github.com/theskumar/python-dotenv/releases)
+  - [Changelog](https://github.com/theskumar/python-dotenv/blob/master/CHANGELOG.md)
+  - [Commits](https://github.com/theskumar/python-dotenv/compare/v0.1.1...v0.11.0)
+- Fix #203 document the usage with pytest (with examples) [Bruno Rocha]
+- Overriding strategy test. [Bruno Rocha]
+- Fix #145 allow lazy format using os.environ and settings values.
+  [Bruno Rocha]
+- Add t.me badge fix #262. [Bruno Rocha]
+- Fix #273 add Flask load extensions method. [Bruno Rocha]
+
+  - This commit adds a new method `load_extensions` to
+  `FlaskDynaconf` class.
+- Update python-dotenv requirement from <=0.10.3 to <0.10.6.
+  [dependabot-preview[bot]]
+
+  Updates the requirements on [python-dotenv](https://github.com/theskumar/python-dotenv) to permit the latest version.
+  - [Release notes](https://github.com/theskumar/python-dotenv/releases)
+  - [Changelog](https://github.com/theskumar/python-dotenv/blob/master/CHANGELOG.md)
+  - [Commits](https://github.com/theskumar/python-dotenv/compare/v0.1.1...v0.10.5)
+- Fix object_merge issue #285 with  meta value. [JSP]
+- Merge pull request #281 from hilam/fix_pre_commit. [Hildeberto]
+
+  Fix pre-commit to run python3 rather than python3.7
+- Fix pre-commit to run python3 rather than python3.7. [Hildeberto]
+- Release version 2.2.2. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (3):
+            Release version 2.2.1
+            Fix #258 custom message for validators
+            Pin python-box version because of a breaking release
+
+      Hildeberto (1):
+            Close #178. Included integration tests redis/vault
+
+
+2.2.2 (2019-12-26)
+------------------
+- Release version 2.2.2. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (3):
+            Release version 2.2.1
+            Fix #258 custom message for validators
+            Pin python-box version because of a breaking release
+
+      Hildeberto (1):
+            Close #178. Included integration tests redis/vault
+- Pin python-box version because of a breaking release. [Bruno Rocha]
+
+  The release of python-box https://github.com/cdgriffith/Box/pull/116
+  is a breaking change.
+
+  So pinning this until this project addapts.
+
+  Also pinning other direct deps.
+- Fix #258 custom message for validators. [Bruno Rocha]
+- Close #178. Included integration tests redis/vault. [Hildeberto]
+- Release version 2.2.1. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (4):
+            Release version 2.2.0
+            Fix #251 recursive call was using mutable memoized data (#254)
+            Fix #266 created new variable FORCE_ENV to override ENV_FOR_DYNACONF
+            Fix coverage for validators
+
+      David Moreau Simard (1):
+            Add ara as a user of dynaconf (#252)
+
+      Emmanuel Nosa Evbuomwan (1):
+            Update sensitive_secrets.md
+
+      Hildeberto (1):
+            Adjust remote upstream URL
+
+      Jan Willhaus (1):
+            Add support for detecting duplicate validators being added (and ignore them) (#256)
+
+      Oliver Lehmann (5):
+            fix: env_loader.write: quote_mode for non-string values
+            : added line break
+            fix str comparison
+            changing quote logic
+            fix open error @py3.5
+
+
+2.2.1 (2019-12-06)
+------------------
+
+Fix
+~~~
+- Env_loader.write: quote_mode for non-string values. [Oliver Lehmann]
+
+Other
+~~~~~
+- Release version 2.2.1. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (4):
+            Release version 2.2.0
+            Fix #251 recursive call was using mutable memoized data (#254)
+            Fix #266 created new variable FORCE_ENV to override ENV_FOR_DYNACONF
+            Fix coverage for validators
+
+      David Moreau Simard (1):
+            Add ara as a user of dynaconf (#252)
+
+      Emmanuel Nosa Evbuomwan (1):
+            Update sensitive_secrets.md
+
+      Hildeberto (1):
+            Adjust remote upstream URL
+
+      Jan Willhaus (1):
+            Add support for detecting duplicate validators being added (and ignore them) (#256)
+
+      Oliver Lehmann (5):
+            fix: env_loader.write: quote_mode for non-string values
+            : added line break
+            fix str comparison
+            changing quote logic
+            fix open error @py3.5
+- Fix coverage for validators. [Bruno Rocha]
+- Fix #266 created new variable FORCE_ENV to override ENV_FOR_DYNACONF.
+  [Bruno Rocha]
+- Adjust remote upstream URL. [Hildeberto]
+- Update sensitive_secrets.md. [Emmanuel Nosa Evbuomwan]
+
+  Updated the file reference from `settings`.toml{json|py|ini|yaml} to the convention used thus far; `secrets`.toml{json|py|ini|yaml}. This can help alleviate the slightest chance of the information becoming misleading or confusing. This can also be ignored if Dynaconf can be set to search for secrets in files other than `secrets.<ext>`
+- Fix open error @py3.5. [Oliver Lehmann]
+- Changing quote logic. [Oliver Lehmann]
+- Fix str comparison. [Oliver Lehmann]
+- : added line break. [Oliver Lehmann]
+- Add support for detecting duplicate validators being added (and ignore
+  them) (#256) [Jan Willhaus]
+- Fix #251 recursive call was using mutable memoized data (#254) [Bruno
+  Rocha]
+
+  replaced with recursive passing of parent data.
+
+  NOTE to SELF: Never! use a mutable memoized data
+                Always use `==` to compare when you dont know the types
+- Add ara as a user of dynaconf (#252) [David Moreau Simard]
+- Release version 2.2.0. [Bruno Rocha]
+
+  Shortlog of commits since last release:
+
+      Bruno Rocha (5):
+            Release version 2.1.1
+            Fix #236 added .local. files loading and module impersonation docs (#239)
+            Replace key.upper with `upperfy` function that keeps `__` attributes (#240)
+            Fix #241 new merge standards (#243)
+            Add support for PRELOAD_ setting. (#244)
+
+      Kedar Kulkarni (1):
+            Fixing how filename.local.* files are loaded (#238)
+
+      paskozdilar (1):
+            fix crash on empty settings (#242)
+
+
 2.2.0 (2019-10-09)
 ------------------
 - Release version 2.2.0. [Bruno Rocha]

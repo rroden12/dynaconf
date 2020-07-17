@@ -51,8 +51,11 @@ def load(obj, env=None, silent=None, key=None):
     env_list = build_env_list(obj, env)
     for env in env_list:
         path = "/".join([obj.VAULT_PATH_FOR_DYNACONF, env])
+        mount_point = obj.VAULT_MOUNT_POINT_FOR_DYNACONF
         try:
-            data = client.secrets.kv.read_secret_version(path)
+            data = client.secrets.kv.read_secret_version(
+                path, mount_point=mount_point
+            )
         except InvalidPath:
             # If the path doesn't exist, ignore it and set data to None
             data = None
@@ -64,26 +67,11 @@ def load(obj, env=None, silent=None, key=None):
             if data and key:
                 value = parse_conf_data(data.get(key), tomlfy=True)
                 if value:
-                    obj.logger.debug(
-                        "vault_loader: loading by key: %s:%s (%s:%s)",
-                        key,
-                        "****",
-                        IDENTIFIER,
-                        path,
-                    )
                     obj.set(key, value)
             elif data:
-                obj.logger.debug(
-                    "vault_loader: loading: %s (%s:%s)",
-                    list(data.keys()),
-                    IDENTIFIER,
-                    path,
-                )
                 obj.update(data, loader_identifier=IDENTIFIER, tomlfy=True)
         except Exception as e:
             if silent:
-                if hasattr(obj, "logger"):
-                    obj.logger.error(str(e))
                 return False
             raise
 
@@ -108,7 +96,10 @@ def write(obj, data=None, **kwargs):
         raise AttributeError("Data must be provided")
     client = get_client(obj)
     path = "/".join([obj.VAULT_PATH_FOR_DYNACONF, obj.current_env.lower()])
-    client.secrets.kv.create_or_update_secret(path, secret=data)
+    mount_point = obj.VAULT_MOUNT_POINT_FOR_DYNACONF
+    client.secrets.kv.create_or_update_secret(
+        path, secret=data, mount_point=mount_point
+    )
     load(obj)
 
 
@@ -128,6 +119,6 @@ def list_envs(obj, path=""):
     client = get_client(obj)
     path = path or obj.get("VAULT_PATH_FOR_DYNACONF")
     try:
-        return client.list("/secret/metadata/{}".format(path))["data"]["keys"]
+        return client.list(f"/secret/metadata/{path}")["data"]["keys"]
     except TypeError:
         return []

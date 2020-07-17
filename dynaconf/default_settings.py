@@ -3,7 +3,6 @@ import os
 import sys
 import warnings
 
-from dynaconf.utils import raw_logger
 from dynaconf.utils import RENAMED_VARS
 from dynaconf.utils import upperfy
 from dynaconf.utils import warn_deprecations
@@ -21,9 +20,7 @@ def try_renamed(key, value, older_key, current_key):
         if key == current_key:
             if older_key in os.environ:
                 warnings.warn(
-                    "{0} is deprecated please use {1}".format(
-                        older_key, current_key
-                    ),
+                    f"{older_key} is deprecated please use {current_key}",
                     DeprecationWarning,
                 )
                 value = os.environ[older_key]
@@ -51,10 +48,6 @@ def start_dotenv(obj=None, root_path=None):
         or getattr(obj, "_root_path", None)
         or get("ROOT_PATH_FOR_DYNACONF")
     )
-    raw_logger().debug(
-        "Starting Dynaconf Dotenv %s",
-        "for {0}".format(root_path) if root_path else "Base",
-    )
 
     dotenv_path = (
         obj.get("DOTENV_PATH_FOR_DYNACONF")
@@ -71,8 +64,9 @@ def start_dotenv(obj=None, root_path=None):
     warn_deprecations(os.environ)
 
 
-def reload(*args, **kwargs):
-    start_dotenv(*args, **kwargs)
+def reload(load_dotenv=None, *args, **kwargs):
+    if load_dotenv:
+        start_dotenv(*args, **kwargs)
     importlib.reload(sys.modules[__name__])
 
 
@@ -81,18 +75,22 @@ def reload(*args, **kwargs):
 ROOT_PATH_FOR_DYNACONF = get("ROOT_PATH_FOR_DYNACONF", None)
 
 # Default settings file
-default_paths = (
-    "settings.py,.secrets.py,"
-    "settings.toml,settings.tml,.secrets.toml,.secrets.tml,"
-    "settings.yaml,settings.yml,.secrets.yaml,.secrets.yml,"
-    "settings.ini,settings.conf,settings.properties,"
-    ".secrets.ini,.secrets.conf,.secrets.properties,"
-    "settings.json,.secrets.json"
-)
-SETTINGS_FILE_FOR_DYNACONF = get("SETTINGS_FILE_FOR_DYNACONF", default_paths)
+SETTINGS_FILE_FOR_DYNACONF = get("SETTINGS_FILE_FOR_DYNACONF", [])
+
+# MISPELLS `FILES` when/if it happens
+mispelled_files = get("SETTINGS_FILES_FOR_DYNACONF", None)
+if not SETTINGS_FILE_FOR_DYNACONF and mispelled_files is not None:
+    SETTINGS_FILE_FOR_DYNACONF = mispelled_files
 
 # # ENV SETTINGS
 # # In dynaconf 1.0.0 `NAMESPACE` got renamed to `ENV`
+
+
+# If provided environments will be loaded separatelly
+ENVIRONMENTS_FOR_DYNACONF = get("ENVIRONMENTS_FOR_DYNACONF", False)
+
+# If False dynaconf will allow access to first level settings only in upper
+LOWERCASE_READ_FOR_DYNACONF = get("LOWERCASE_READ_FOR_DYNACONF", True)
 
 # The environment variable to switch current env
 ENV_SWITCHER_FOR_DYNACONF = get(
@@ -104,6 +102,9 @@ ENV_SWITCHER_FOR_DYNACONF = get(
 # or put that value in .env file
 # this value is used only when reading files like .toml|yaml|ini|json
 ENV_FOR_DYNACONF = get(ENV_SWITCHER_FOR_DYNACONF, "DEVELOPMENT")
+
+# This variable exists to support `from_env` method
+FORCE_ENV_FOR_DYNACONF = get("FORCE_ENV_FOR_DYNACONF", None)
 
 # Default values is taken from DEFAULT pseudo env
 # this value is used only when reading files like .toml|yaml|ini|json
@@ -146,8 +147,7 @@ vault_host = get("VAULT_HOST_FOR_DYNACONF", "localhost")
 vault_port = get("VAULT_PORT_FOR_DYNACONF", "8200")
 default_vault = {
     "url": get(
-        "VAULT_URL_FOR_DYNACONF",
-        "{}://{}:{}".format(vault_scheme, vault_host, vault_port),
+        "VAULT_URL_FOR_DYNACONF", f"{vault_scheme}://{vault_host}:{vault_port}"
     ),
     "token": get("VAULT_TOKEN_FOR_DYNACONF", None),
     "cert": get("VAULT_CERT_FOR_DYNACONF", None),
@@ -159,6 +159,9 @@ default_vault = {
 VAULT_FOR_DYNACONF = get("VAULT_FOR_DYNACONF", default_vault)
 VAULT_ENABLED_FOR_DYNACONF = get("VAULT_ENABLED_FOR_DYNACONF", False)
 VAULT_PATH_FOR_DYNACONF = get("VAULT_PATH_FOR_DYNACONF", "dynaconf")
+VAULT_MOUNT_POINT_FOR_DYNACONF = get(
+    "VAULT_MOUNT_POINT_FOR_DYNACONF", "secret"
+)
 VAULT_ROLE_ID_FOR_DYNACONF = get("VAULT_ROLE_ID_FOR_DYNACONF", None)
 VAULT_SECRET_ID_FOR_DYNACONF = get("VAULT_SECRET_ID_FOR_DYNACONF", None)
 
@@ -180,9 +183,6 @@ SILENT_ERRORS_FOR_DYNACONF = get("SILENT_ERRORS_FOR_DYNACONF", True)
 # always fresh variables
 FRESH_VARS_FOR_DYNACONF = get("FRESH_VARS_FOR_DYNACONF", [])
 
-# debug
-DEBUG_LEVEL_FOR_DYNACONF = get("DEBUG_LEVEL_FOR_DYNACONF", "NOTSET")
-
 DOTENV_PATH_FOR_DYNACONF = get("DOTENV_PATH_FOR_DYNACONF", None)
 DOTENV_VERBOSE_FOR_DYNACONF = get("DOTENV_VERBOSE_FOR_DYNACONF", False)
 DOTENV_OVERRIDE_FOR_DYNACONF = get("DOTENV_OVERRIDE_FOR_DYNACONF", False)
@@ -193,7 +193,7 @@ DOTENV_OVERRIDE_FOR_DYNACONF = get("DOTENV_OVERRIDE_FOR_DYNACONF", False)
 INSTANCE_FOR_DYNACONF = get("INSTANCE_FOR_DYNACONF", None)
 
 # https://msg.pyyaml.org/load
-YAML_LOADER_FOR_DYNACONF = get("YAML_LOADER_FOR_DYNACONF", "full_load")
+YAML_LOADER_FOR_DYNACONF = get("YAML_LOADER_FOR_DYNACONF", "safe_load")
 
 # Use commentjson? https://commentjson.readthedocs.io/en/latest/
 COMMENTJSON_ENABLED_FOR_DYNACONF = get(
